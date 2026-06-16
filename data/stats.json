@@ -1,0 +1,39 @@
+{
+  "controllers": [
+    "feedforward",
+    "neat",
+    "recurrent"
+  ],
+  "regimes": [
+    "colony",
+    "hybrid",
+    "individual"
+  ],
+  "feedforward_MI_colony": 0.0025285585418980483,
+  "feedforward_MI_individual": 0.005210033922230122,
+  "feedforward_MI_p_colony_gt_ind": 0.8634818301244058,
+  "feedforward_colony_value_pct": 7.4931383067973645,
+  "feedforward_colony_p_on_gt_abl": 9.133589555477501e-05,
+  "feedforward_hybrid_value_pct": 24.057345455056243,
+  "feedforward_hybrid_p_on_gt_abl": 0.0008531246844597983,
+  "feedforward_individual_value_pct": 2.728580941609593,
+  "feedforward_individual_p_on_gt_abl": 0.032011050641513446,
+  "neat_MI_colony": 0.02820951786848127,
+  "neat_MI_individual": 0.044255627100576615,
+  "neat_MI_p_colony_gt_ind": 0.9843954936141299,
+  "neat_colony_value_pct": 10.135877498962763,
+  "neat_colony_p_on_gt_abl": 0.5150750115034222,
+  "neat_hybrid_value_pct": -30.824387386379335,
+  "neat_hybrid_p_on_gt_abl": 0.9993425276651434,
+  "neat_individual_value_pct": 2.5552732512940324,
+  "neat_individual_p_on_gt_abl": 0.7863223430510962,
+  "recurrent_MI_colony": 0.009371523151548175,
+  "recurrent_MI_individual": 0.016326492322778028,
+  "recurrent_MI_p_colony_gt_ind": 0.8938530819038342,
+  "recurrent_colony_value_pct": -0.9065555548160131,
+  "recurrent_colony_p_on_gt_abl": 0.6043316099496698,
+  "recurrent_hybrid_value_pct": -20.044641102498705,
+  "recurrent_hybrid_p_on_gt_abl": 0.9977068039598732,
+  "recurrent_individual_value_pct": 4.4856880136326716,
+  "recurrent_individual_p_on_gt_abl": 0.3115881119410587
+}

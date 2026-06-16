@@ -1,0 +1,40 @@
+{
+  "value_table": {
+    "feedforward_colony": {
+      "value_pct": 7.49,
+      "p": 0.0001
+    },
+    "feedforward_individual": {
+      "value_pct": 2.73,
+      "p": 0.032
+    },
+    "feedforward_hybrid": {
+      "value_pct": 24.06,
+      "p": 0.0009
+    },
+    "recurrent_colony": {
+      "value_pct": -0.91,
+      "p": 0.6043
+    },
+    "recurrent_individual": {
+      "value_pct": 4.49,
+      "p": 0.3116
+    },
+    "recurrent_hybrid": {
+      "value_pct": -20.04,
+      "p": 0.9977
+    },
+    "neat_colony": {
+      "value_pct": 10.14,
+      "p": 0.5151
+    },
+    "neat_individual": {
+      "value_pct": 2.56,
+      "p": 0.7863
+    },
+    "neat_hybrid": {
+      "value_pct": -30.82,
+      "p": 0.9993
+    }
+  }
+}
