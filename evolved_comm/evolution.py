@@ -1,10 +1,9 @@
-"""Evolution core shared by all three controllers.
+"""Evolution core shared by both controllers.
 
 This module is brain-agnostic: it assembles foraging groups under the chosen
 selection regime, scores genomes, and drives evolution.  The only thing it asks
 of a controller is ``random_population``, ``make_policy(population, ids_flat)``
-and (for fixed-topology brains) array genomes; NEAT plugs in through the same
-surface.
+and array genomes.
 
 Regimes (the central manipulation):
   colony     : clonal groups, fitness = group yield               (relatedness 1)
@@ -19,13 +18,11 @@ import os, pickle
 import numpy as np
 from dataclasses import replace
 from .config import Config
-from . import env, metrics, controllers, neat
+from . import env, metrics, controllers
 
 
 def get_controller(cfg: Config):
-    """Return the controller object named by ``cfg.controller`` (incl. NEAT)."""
-    if cfg.controller == "neat":
-        return neat.NeatController(cfg)
+    """Return the controller object named by ``cfg.controller``."""
     return controllers.get_vector_controller(cfg)
 
 
@@ -89,7 +86,7 @@ def probe_mi(controller, genome, cfg: Config, rng, n_groups=32, want_map=False):
     (for the signal-map figures).
     """
     n_agents = n_groups * cfg.group_size
-    population = [genome] if cfg.controller == "neat" else genome[None]
+    population = genome[None]
     agent_ids = np.zeros(n_agents, dtype=int)
     rollout = env.simulate(cfg, n_groups, controller.make_policy(population, agent_ids), rng, log=True)
     mi, null = metrics.signal_food_mi(rollout.signal, rollout.food_state, cfg, rng)
@@ -152,9 +149,7 @@ def _load_ckpt(path):
 #  Main loops                                                                 #
 # --------------------------------------------------------------------------- #
 def evolve(cfg: Config, mi_every=5, probe_groups=32, checkpoint_path=None, log_fn=None):
-    """Dispatch to the right engine. Returns (history dict, final-probe dict)."""
-    if cfg.controller == "neat":
-        return _evolve_neat(cfg, mi_every, probe_groups, checkpoint_path, log_fn)
+    """Run the evolution loop. Returns (history dict, final-probe dict)."""
     return _evolve_vector(cfg, mi_every, probe_groups, checkpoint_path, log_fn)
 
 
@@ -205,49 +200,4 @@ def _evolve_vector(cfg, mi_every, probe_groups, checkpoint_path, log_fn):
     for key in hist:
         hist[key] = np.array(hist[key])
 
-    return hist, final
-
-
-def _evolve_neat(cfg, mi_every, probe_groups, checkpoint_path, log_fn):
-    """Evolution loop for the NEAT controller (also tracks species + complexity)."""
-
-    checkpoint = _load_ckpt(checkpoint_path)
-    if checkpoint:
-        controller = checkpoint["ctrl"]; pop = checkpoint["pop"]; hist = checkpoint["hist"]
-        start_gen = checkpoint["gen"] + 1; rng = checkpoint["rng"]
-    else:
-        rng = np.random.default_rng(cfg.seed)
-        controller = neat.NeatController(cfg)
-        pop = controller.random_population(cfg.pop_size, rng)
-        hist = {"yield": [], "best_fit": [], "mi_gen": [], "mi": [], "mi_null": [],
-                "n_species": [], "mean_conns": []}
-        start_gen = 0
-
-    for gen in range(start_gen, cfg.generations):
-        fitness, group_yield = evaluate_population(controller, pop, cfg, rng)
-        _record(hist, gen, group_yield, fitness)
-
-        if gen % mi_every == 0 or gen == cfg.generations - 1:
-            mi, null = probe_mi(controller, pop[int(fitness.argmax())], cfg, rng, probe_groups)
-            hist["mi_gen"].append(gen); hist["mi"].append(mi); hist["mi_null"].append(null)
-            if log_fn:
-                log_fn(gen, dict(yield_=float(group_yield.mean()), mi=mi, null=null))
-
-        pop, n_species = neat.reproduce(pop, fitness, cfg, controller.innov, rng)
-        hist["n_species"].append(n_species)
-        hist["mean_conns"].append(float(np.mean([len(g.conns) for g in pop])))
-
-        if cfg.checkpoint_every and gen % cfg.checkpoint_every == 0:
-            _save_ckpt(checkpoint_path, dict(ctrl=controller, pop=pop, hist=hist, gen=gen, rng=rng))
-
-    fitness, _ = evaluate_population(controller, pop, cfg, rng)
-    best = pop[int(fitness.argmax())]
-    mi, null, rollout = probe_mi(controller, best, replace(cfg, mi_null_shuffles=50), rng, 96, True)
-
-    final = dict(mi=mi, mi_null=null, signal=rollout.signal, food_state=rollout.food_state,
-                 dist_food=rollout.dist_food, pos=rollout.pos, best_genome=best)
-    
-    for key in hist:
-        hist[key] = np.array(hist[key])
-        
     return hist, final

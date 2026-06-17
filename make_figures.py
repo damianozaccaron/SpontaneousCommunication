@@ -7,7 +7,6 @@ exist:
   emergence_<controller>.pdf: I(signal;food-state) vs generation + shuffle null.
   value_bar.pdf             : final yield, channel-on vs ablated, per cond.
   alpha_sweep.pdf           : hybrid -- MI and channel value vs alpha.
-  neat_complexity.pdf       : NEAT mean #connections and #species vs generation.
   signal_map.pdf            : an exemplar champion's signalling behaviour.
 and stats.json with medians, Mann-Whitney tests, and the channel-value table.
 
@@ -26,10 +25,13 @@ regime_color = {"colony": "#c0392b", "individual": "#2c3e50", "hybrid": "#16a085
 
 
 def load_runs(results_dir):
-    """Load every result .npz from a directory, skipping legacy v1 files."""
+    """Load every result .npz from a directory, skipping legacy/unreadable files."""
     runs = []
     for path in glob.glob(os.path.join(results_dir, "*.npz")):
-        data = dict(np.load(path, allow_pickle=True))
+        try:
+            data = dict(np.load(path, allow_pickle=True))
+        except Exception:                 # skip unreadable / partially-written .npz
+            continue
         data = {k: (v.item() if getattr(v, "ndim", 1) == 0 else v) for k, v in data.items()}
         if "controller" not in data:      # skip legacy v1 result files
             continue
@@ -110,11 +112,11 @@ for controller in controllers:
         if ci is not None:
             gens = rows[0]["mi_gen"][:ci[0].shape[0]]
             ax.plot(gens, ci[0], color=regime_color[regime], lw=1.6, label=regime)
-            ax.fill_between(gens, ci[1], ci[2], color=regime_color[regime], alpha=.15, lw=0)
+            ax.fill_between(gens, ci[1], ci[2], color=regime_color[regime], alpha=.4, lw=0)
             null_bands.append(stack_curves(rows, "mi_null"))
     if null_bands:
         all_nulls = np.concatenate(null_bands, 0); gens = np.arange(all_nulls.shape[1])
-        ax.fill_between(gens, 0, np.percentile(all_nulls, 95, 0), color="gray", alpha=.3, lw=0,
+        ax.fill_between(gens, 0, np.percentile(all_nulls, 95, 0), color="gray", alpha=.4, lw=0,
                         label="shuffle null 95%")
     ax.set_xlabel("generation"); ax.set_ylabel("I(signal; food-state) [nats]")
     ax.set_title(f"Emergence - {controller}"); ax.legend(frameon=False, fontsize=7.5)
@@ -171,46 +173,153 @@ if len(alphas) > 1:
     axes[0].legend(frameon=False, fontsize=8); fig.tight_layout(); save_figure(fig, "alpha_sweep")
 
 
-# ---- NEAT complexity ------------------------------------------------------
-neat_rows = select_runs(runs, controller="neat", regime="colony", ablate=False)
-if neat_rows and "mean_conns" in neat_rows[0]:
-    fig, ax = plt.subplots(figsize=(4, 3))
-    mean_conns = stack_curves(neat_rows, "mean_conns")
-    ax.plot(np.arange(mean_conns.shape[1]), np.median(mean_conns, 0), color="#8e44ad", label="mean #connections")
-    if "n_species" in neat_rows[0]:
-        n_species = stack_curves(neat_rows, "n_species")
-        ax2 = ax.twinx(); ax2.plot(np.arange(n_species.shape[1]), np.median(n_species, 0),
-                                   color="#e67e22", lw=1, label="#species")
-        ax2.set_ylabel("#species", color="#e67e22")
-    ax.set_xlabel("generation"); ax.set_ylabel("mean #connections", color="#8e44ad")
-    ax.set_title("NEAT topology growth"); fig.tight_layout(); save_figure(fig, "neat_complexity")
-
-
-# ---- signal map exemplar (highest-MI run with stored arrays) --------------
-# Only channel-on runs that actually stored the full map arrays are eligible:
-# ablated runs save sm_signal but not sm_dist/sm_pos, so an ablated champion
-# (high "free" MI) would crash the proximity/position plots below.
-exemplars = [run for run in runs
-             if all(k in run for k in ("sm_signal", "sm_dist", "sm_pos")) and not run["ablate"]]
-if exemplars:
-    champion = max(exemplars, key=lambda run: float(run["final_mi"]))
+# ---- signal map exemplar: the feedforward-hybrid champion -----------------
+# Only channel-on runs store the map arrays. We feature the FEEDFORWARD HYBRID
+# champion (the most communicative condition), falling back to the highest-MI
+# eligible run if it is absent. A spatial map is NOT shown: food patches are
+# randomly placed per group (and not logged), so an absolute-coordinate map
+# aggregated over groups carries no structure. Instead: (a) signal vs distance
+# to food -- the conspicuous but "free" food cue; (b) signal vs local crowding
+# -- the small, listener-dependent component the referent analysis flags as the
+# actual communication.
+NEIGHBOUR_RADIUS, WORLD = 0.10, 1.0
+eligible = [run for run in runs
+            if all(k in run for k in ("sm_signal", "sm_dist", "sm_pos")) and not run["ablate"]]
+preferred = [run for run in eligible
+             if run["controller"] == "feedforward" and run["regime"] == "hybrid"]
+pool = preferred or eligible
+if pool:
+    champion = max(pool, key=lambda run: float(run["final_mi"]))
+    signal = np.asarray(champion["sm_signal"]); positions = np.asarray(champion["sm_pos"])
+    signal_flat = signal.ravel(); dist = np.asarray(champion["sm_dist"]).ravel()
     fig, axes = plt.subplots(1, 2, figsize=(7, 3))
-    signal = np.asarray(champion["sm_signal"]).ravel(); dist = np.asarray(champion["sm_dist"]).ravel()
-    finite = np.isfinite(dist); signal, dist = signal[finite], dist[finite]
-    dist_bins = np.linspace(0, 0.4, 17); bin_of = np.digitize(dist, dist_bins); bin_centers, mean_signals = [], []
+
+    # (a) signal vs distance to nearest food
+    finite = np.isfinite(dist); sig_d, dist_d = signal_flat[finite], dist[finite]
+    dist_bins = np.linspace(0, 0.4, 17); bin_of = np.digitize(dist_d, dist_bins)
+    centres, mean_sig = [], []
     for b in range(1, len(dist_bins)):
         in_bin = bin_of == b
         if in_bin.sum() > 50:
-            bin_centers.append(.5*(dist_bins[b-1]+dist_bins[b])); mean_signals.append(signal[in_bin].mean())
-    axes[0].plot(bin_centers, mean_signals, "-o", ms=3, color="#8e44ad")
+            centres.append(.5*(dist_bins[b-1]+dist_bins[b])); mean_sig.append(sig_d[in_bin].mean())
+    axes[0].plot(centres, mean_sig, "-o", ms=3, color="#8e44ad")
     axes[0].set_xlabel("distance to nearest food"); axes[0].set_ylabel("mean signal")
-    axes[0].set_title(f"(a) {champion['controller']}/{champion['regime']} signal vs proximity")
-    positions = np.asarray(champion["sm_pos"]); signal_field = np.asarray(champion["sm_signal"])
-    focal_xy = positions[:, 0, :, :].reshape(-1, 2); focal_signal = signal_field[:, 0, :].reshape(-1)
-    hexbin = axes[1].hexbin(focal_xy[:, 0], focal_xy[:, 1], C=focal_signal, gridsize=20,
-                            cmap="viridis", reduce_C_function=np.mean)
-    fig.colorbar(hexbin, ax=axes[1], shrink=.85, label="mean signal")
-    axes[1].set_title("(b) where signals fire"); fig.tight_layout(); save_figure(fig, "signal_map")
+    axes[0].set_title("(a) signal vs. food distance")
+
+    # (b) signal vs number of groupmates within NEIGHBOUR_RADIUS (toroidal)
+    offset = positions[:, :, :, None, :] - positions[:, :, None, :, :]
+    offset = (offset + WORLD / 2) % WORLD - WORLD / 2
+    pair_dist = np.sqrt((offset ** 2).sum(-1))
+    not_self = ~np.eye(positions.shape[2], dtype=bool)[None, None]
+    n_neigh = ((pair_dist < NEIGHBOUR_RADIUS) & not_self).sum(-1).ravel()
+    counts, mean_sig_n, sem_n = [], [], []
+    for c in np.unique(n_neigh):
+        in_c = n_neigh == c
+        if in_c.sum() > 50:
+            counts.append(int(c)); mean_sig_n.append(signal_flat[in_c].mean())
+            sem_n.append(signal_flat[in_c].std() / np.sqrt(in_c.sum()))
+    axes[1].errorbar(counts, mean_sig_n, yerr=sem_n, fmt="-o", ms=3, color="#16a085", capsize=2)
+    axes[1].set_xlabel(f"groupmates within {NEIGHBOUR_RADIUS}"); axes[1].set_ylabel("mean signal")
+    axes[1].set_title("(b) signal vs. local crowding")
+    fig.tight_layout(); save_figure(fig, "signal_map")
+
+
+# ---- combined learning panel (both controllers) ---------------------------
+# FF and RNN side by side on a SHARED y-scale so the cross-controller yield gap
+# is directly comparable, but with y-tick labels on BOTH panels for readability.
+# Display curves are smoothed (moving average) so the channel-on vs ablated
+# distinction is carried by an explicit line-style legend rather than being lost
+# in per-generation noise. The two panels are independent on the x-axis, so the
+# controllers may be evolved for a different number of generations (e.g. a longer
+# recurrent run that needs more generations to plateau).
+def _smooth(curve, window=21):
+    """Length-preserving centered moving average, for display only."""
+    curve = np.asarray(curve, float)
+    if window <= 1 or curve.size < window:
+        return curve
+    pad = window // 2
+    kernel = np.ones(window) / window
+    return np.convolve(np.pad(curve, pad, mode="edge"), kernel, mode="valid")[:curve.size]
+
+
+SMOOTH_W = 21
+ctrl_order = [c for c in ["feedforward", "recurrent"] if c in controllers]
+regime_order = [r for r in ["colony", "individual", "hybrid"] if r in regimes]
+if ctrl_order:
+    from matplotlib.lines import Line2D
+    fig, axes = plt.subplots(1, len(ctrl_order), figsize=(7, 3), sharey=True, squeeze=False)
+    axes = axes[0]
+    for ax, controller in zip(axes, ctrl_order):
+        for regime in regime_order:
+            on_curves = stack_curves(select_runs(runs, controller=controller, regime=regime, ablate=False), "yield_curve")
+            ci = median_with_ci(on_curves)
+            if ci is not None:
+                gens = np.arange(ci[0].shape[0])
+                ax.plot(gens, _smooth(ci[0]), color=regime_color[regime], lw=2.0)
+                ax.fill_between(gens, _smooth(ci[1]), _smooth(ci[2]),
+                                color=regime_color[regime], alpha=.12, lw=0)
+            abl_curves = stack_curves(select_runs(runs, controller=controller, regime=regime, ablate=True), "yield_curve")
+            if abl_curves.shape[0]:
+                med = np.median(abl_curves, 0)
+                ax.plot(np.arange(med.shape[0]), _smooth(med),
+                        color=regime_color[regime], lw=1.7, ls=(0, (5, 2)), alpha=.9)
+        ax.set_xlabel("generation"); ax.set_title(controller)
+        ax.set_ylabel("group yield"); ax.tick_params(labelleft=True)
+    # two separate keys: colour = regime, line style = channel condition
+    regime_handles = [Line2D([0], [0], color=regime_color[r], lw=2.4) for r in regime_order]
+    style_handles = [Line2D([0], [0], color="0.35", lw=2.0, ls="-"),
+                     Line2D([0], [0], color="0.35", lw=1.7, ls=(0, (5, 2)))]
+    leg_regime = axes[0].legend(regime_handles, regime_order, frameon=False,
+                                fontsize=7.5, loc="lower right")
+    axes[0].add_artist(leg_regime)
+    axes[-1].legend(style_handles, ["channel on", "ablated (deaf)"], frameon=False,
+                    fontsize=7.5, loc="lower right")
+    fig.tight_layout(); save_figure(fig, "learning_combined")
+
+
+# ---- multi-referent signal informativeness --------------------------------
+# Medians copied from the signal_referents.py console table (KSG estimator,
+# raw continuous signal, 10 seeds/condition).  NOT recomputed here: that script
+# re-runs 120 logged probe episodes and needs scikit-learn, whereas this file
+# only needs what is already saved in data/.  Each value is
+# (MI_channel_on, MI_deaf/ablated, p of one-sided MWU test on>deaf).
+referent_mi = {
+    "on_food": {
+        ("feedforward", "colony"): (0.464, 0.495, 0.828),
+        ("feedforward", "individual"): (0.453, 0.474, 0.786),
+        ("feedforward", "hybrid"): (0.314, 0.478, 0.996),
+        ("recurrent", "colony"): (0.218, 0.294, 0.939),
+        ("recurrent", "individual"): (0.107, 0.298, 0.995),
+        ("recurrent", "hybrid"): (0.053, 0.205, 0.999),
+    },
+    "neighbors": {
+        ("feedforward", "colony"): (0.048, 0.010, 0.000),
+        ("feedforward", "individual"): (0.022, 0.009, 0.019),
+        ("feedforward", "hybrid"): (0.143, 0.007, 0.011),
+        ("recurrent", "colony"): (0.056, 0.089, 0.991),
+        ("recurrent", "individual"): (0.027, 0.057, 0.987),
+        ("recurrent", "hybrid"): (0.025, 0.052, 0.993),
+    },
+}
+mi_cells = [(c, r) for c in ["feedforward", "recurrent"] for r in ["colony", "individual", "hybrid"]]
+mi_cell_labels = [f"{'FF' if c == 'feedforward' else 'RNN'}\n{r[:3]}" for c, r in mi_cells]
+fig, axes = plt.subplots(1, 2, figsize=(7, 3))
+for ax, referent in zip(axes, ["on_food", "neighbors"]):
+    x = np.arange(len(mi_cells)); bar_w = 0.4
+    mi_on = [referent_mi[referent][cell][0] for cell in mi_cells]
+    mi_deaf = [referent_mi[referent][cell][1] for cell in mi_cells]
+    ax.bar(x - bar_w / 2, mi_on, bar_w, label="channel on", color="#27ae60")
+    ax.bar(x + bar_w / 2, mi_deaf, bar_w, label="deaf (ablated)", color="#95a5a6")
+    headroom = 0.04 * max(mi_on + mi_deaf)
+    for i, cell in enumerate(mi_cells):
+        if referent_mi[referent][cell][2] < 0.05:          # on significantly > deaf
+            ax.text(x[i], max(mi_on[i], mi_deaf[i]) + headroom, "*", ha="center", va="bottom", fontsize=12)
+    ax.set_xticks(x); ax.set_xticklabels(mi_cell_labels, fontsize=7)
+    ax.set_ylim(top=max(mi_on + mi_deaf) * 1.20)       # headroom so the * does not hit the title
+    ax.set_title(f"I(signal; {referent})"); ax.set_ylabel("MI [nats]")
+axes[0].legend(frameon=False, fontsize=8)
+fig.suptitle("Signal informativeness by referent  (* : channel-on > deaf, p<0.05)", fontsize=9)
+fig.tight_layout(rect=[0, 0, 1, 0.95]); save_figure(fig, "referent_mi")
 
 
 # ---- statistics -----------------------------------------------------------

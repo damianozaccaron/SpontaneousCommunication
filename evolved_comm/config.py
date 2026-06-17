@@ -1,10 +1,9 @@
 """Central configuration. One Config object fully specifies a run.
 
 New in this version (vs. the laptop prototype):
-  * controller:  'feedforward' | 'recurrent' (Elman memory) | 'neat'
+  * controller:  'feedforward' | 'recurrent' (Elman memory)
   * regime:      'colony' | 'individual' | 'hybrid' (alpha-blended fitness)
   * eval_repeats: average mixed-group fitness over several random group draws
-  * NEAT hyper-parameters (only used when controller == 'neat')
   * checkpoint_every: periodic resume support for long runs
 """
 from __future__ import annotations
@@ -27,7 +26,7 @@ class Config:
     move_speed: float = 0.04
 
     # ---- Controller ------------------------------------------------------
-    controller: str = "feedforward"      # 'feedforward' | 'recurrent' | 'neat'
+    controller: str = "feedforward"      # 'feedforward' | 'recurrent'
     n_in: int = 9
     n_hidden: int = 16
     n_out: int = 3
@@ -51,22 +50,6 @@ class Config:
     eval_repeats: int = 3 # group re-draws for mixed regimes
     ablate_signal: bool = False # for control
 
-    # ---- NEAT (only used when controller == 'neat') ----------------------
-    neat_init_hidden: int = 0
-    neat_add_conn: float = 0.10
-    neat_add_node: float = 0.04
-    neat_weight_mut: float = 0.85        # P(perturb weights) per offspring
-    neat_weight_sigma: float = 0.5
-    neat_weight_replace: float = 0.10    # P(reset a weight outright)
-    neat_compat_threshold: float = 3.0   # starting point only when adaptive threshold is on
-    neat_target_species: int = 12        # adaptive speciation target; <=0 => fixed-threshold (legacy)
-    neat_c1: float = 1.0                 # excess coeff
-    neat_c2: float = 1.0                 # disjoint coeff
-    neat_c3: float = 0.4                 # weight-difference coeff
-    neat_survival: float = 0.4           # top fraction of a species that breeds
-    neat_internal_steps: int = 2         # network propagation passes per env step
-    neat_allow_recurrent: bool = True
-
     # ---- Measurement -----------------------------------------------------
     signal_bins: int = 8                 # legacy equal-width binning (unused by signal_food_mi)
     signal_threshold: float = 0.5        # signal>thr => "loud"; MI is computed on this binary symbol
@@ -78,7 +61,7 @@ class Config:
 
     @property
     def genome_len(self) -> int:
-        """Number of weights in one fixed-topology genome (NEAT ignores this).
+        """Number of weights in one fixed-topology genome.
 
         Counts every weight and bias the controller needs, flattened into a
         single vector: input->hidden weights and hidden biases, then

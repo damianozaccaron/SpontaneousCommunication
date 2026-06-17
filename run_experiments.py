@@ -8,7 +8,7 @@ Re-running skips completed jobs, so it is fully restartable.
 Examples
 --------
 # the headline sweep on a workstation:
-python run_experiments.py --controllers feedforward,recurrent,neat \
+python run_experiments.py --controllers feedforward,recurrent \
     --regimes colony,individual,hybrid --alphas 0.5 --ablate \
     --seeds 15 --gens 800 --pop 300 --workers 12
 
@@ -64,9 +64,6 @@ def run_one(spec):
                   # saved for EVERY run so MI is re-derivable offline without re-simulating:
                   sm_signal=final["signal"], sm_food=final["food_state"],
                   best_genome=np.asarray(final["best_genome"], dtype=object))
-    for extra_key in ("n_species", "mean_conns"):
-        if extra_key in hist:
-            result[extra_key] = hist[extra_key]
     if seed == 0 and not ablate:   # bulky trajectories kept only for the signal-map figures
         result.update(sm_dist=final["dist_food"], sm_pos=final["pos"])
     np.savez_compressed(result_path, **result)
@@ -80,7 +77,7 @@ def run_one(spec):
 def main():
     """Parse CLI args, enumerate the job matrix, and run it across worker processes."""
     parser = argparse.ArgumentParser()
-    parser.add_argument("--controllers", default="feedforward,recurrent,neat")
+    parser.add_argument("--controllers", default="feedforward,recurrent")
     parser.add_argument("--regimes", default="colony,individual,hybrid")
     parser.add_argument("--alphas", default="0.5", help="hybrid alpha values, comma-sep")
     parser.add_argument("--ablate", action="store_true", help="also run ablated controls")

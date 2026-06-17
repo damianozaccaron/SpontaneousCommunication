@@ -23,18 +23,6 @@
     "recurrent_hybrid": {
       "value_pct": -20.04,
       "p": 0.9977
-    },
-    "neat_colony": {
-      "value_pct": 10.14,
-      "p": 0.5151
-    },
-    "neat_individual": {
-      "value_pct": 2.56,
-      "p": 0.7863
-    },
-    "neat_hybrid": {
-      "value_pct": -30.82,
-      "p": 0.9993
     }
   }
 }

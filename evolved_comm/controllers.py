@@ -11,9 +11,6 @@ Two backends here (both batched across all agents with einsum):
   * RecurrentController   : Elman RNN, h_t = tanh(W_in x + W_rec h_{t-1} + b),
                             giving the receiver the memory it needs to "keep
                             heading toward a call I heard a moment ago".
-
-NEAT lives in neat.py (variable topology) but implements the same
-``make_policy`` / ``random_population`` surface so the evolution core is shared.
 """
 from __future__ import annotations
 import numpy as np
@@ -151,8 +148,8 @@ class RecurrentController:
 def get_vector_controller(cfg: Config):
     """Return the fixed-topology controller named by ``cfg.controller``.
 
-    Handles the two array-genome brains (feedforward / recurrent); NEAT is
-    built elsewhere. Raises ``ValueError`` for any other name.
+    Handles the two array-genome brains (feedforward / recurrent).
+    Raises ``ValueError`` for any other name.
     """
     if cfg.controller == "feedforward":
         return FeedforwardController(cfg)

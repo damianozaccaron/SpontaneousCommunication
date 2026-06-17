@@ -1,5 +1,7 @@
-__pycache__
+__pycache__/
 
 data/DONE
 ckpt_*.pkl
 *.pkl
+
+figures/

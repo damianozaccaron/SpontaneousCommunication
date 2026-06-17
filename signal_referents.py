@@ -8,16 +8,6 @@ referents -- the things the signal might be "talking about":
     neighbors      : how many groupmates are within NEIGHBOR_RADIUS?  (count)
     recent_intake  : did the emitter eat in the last RECENT_WINDOW steps? (binary)
 
-Where this sits relative to the live pipeline
----------------------------------------------
-This script combines, offline, the two jobs the training code does online:
-  * the clonal-probe rollout of `evolution.probe_mi`, and
-  * the signal/referent MI of `metrics.signal_food_mi`.
-It does NOT replace `probe_mi`'s in-loop role (that still logs MI every few
-generations into each .npz), and it leaves `metrics.py` untouched.  It is the
-richer re-analysis you run *after* a sweep, on the champion genomes it saved --
-no re-evolution required.
-
 Three deliberate measurement choices (one line each to justify in the report)
 -----------------------------------------------------------------------------
 1. Estimator.  The signal is a continuous, near-degenerate sigmoid output.
@@ -31,8 +21,6 @@ Three deliberate measurement choices (one line each to justify in the report)
    only the excess counts as communication that exists *because* of listeners.
 3. Null floor.  k-NN MI is positively biased, so each estimate is paired with a
    label-shuffle null computed by the same estimator: the bias we must clear.
-
-Usage:  python signal_referents.py      # prints the channel-on vs deaf table
 """
 from __future__ import annotations
 import json
@@ -40,7 +28,7 @@ import numpy as np
 from sklearn.feature_selection import mutual_info_classif
 from scipy.stats import mannwhitneyu
 from evolved_comm.config import Config
-from evolved_comm import env, controllers, neat
+from evolved_comm import env, controllers
 
 # --- measurement parameters ------------------------------------------------- #
 NEIGHBOR_RADIUS = 0.10   # "in range" = within this torus distance.  This is a
@@ -62,33 +50,22 @@ SHARED_CONFIG = {key: value for key, value in json.load(open("data/config.json")
 
 
 def build_run_config(controller: str, regime: str, alpha: float, ablate_signal: bool) -> Config:
-    """Reconstruct the Config of one saved run.
-
-    Starts from the world/GA settings shared across the sweep and overlays this
-    run's identity (controller, regime, hybrid alpha, and whether the signal
-    channel was ablated/"deaf").  The ablation flag matters here because the
-    probe episode must reproduce the condition the champion evolved under.
+    """
+    Reconstruct the Config of one saved run.
     """
     return Config(**{**SHARED_CONFIG, "controller": controller, "regime": regime,
                      "alpha": alpha, "ablate_signal": bool(ablate_signal)})
 
 
 def rebuild_policy(config: Config, champion_genome, n_agents: int):
-    """Turn a saved champion genome back into a callable policy.
-
-    Mirrors how `evolution.probe_mi` instantiates a policy: a single genome
-    cloned across all `n_agents` slots.  NEAT genomes are pickled objects;
-    fixed-topology genomes are flat weight vectors stored as dtype=object, so we
-    cast them back to float before the controller slices them into weight
-    matrices.
     """
-    if config.controller == "neat":
-        controller = neat.NeatController(config)
-        population = [champion_genome]
-    else:
-        controller = controllers.get_vector_controller(config)
-        population = np.asarray(champion_genome, dtype=np.float64)[None]
+    Turn a saved champion genome back into a callable policy. A single genome
+    cloned across all `n_agents` slots.
+    """
+    controller = controllers.get_vector_controller(config)
+    population = np.asarray(champion_genome, dtype=np.float64)[None]
     clone_ids = np.zeros(n_agents, dtype=int)        # every agent uses genome 0
+
     return controller.make_policy(population, clone_ids)
 
 
@@ -105,6 +82,7 @@ def count_neighbors_in_range(positions: np.ndarray, world_size: float, radius: f
     pairwise_distance = np.sqrt((pairwise_offset ** 2).sum(-1))
     group_size = positions.shape[2]
     not_self = ~np.eye(group_size, dtype=bool)[None, None]
+    
     return ((pairwise_distance < radius) & not_self).sum(-1)
 
 
@@ -171,7 +149,7 @@ def probe_champion(npz_path: str) -> dict:
 
 def main():
     """Print, per controller x regime, channel-on vs deaf MI for each referent."""
-    controllers_to_test = ["feedforward", "recurrent", "neat"]
+    controllers_to_test = ["feedforward", "recurrent"]
     regimes = ["colony", "individual", "hybrid-a0.5"]
 
     # results[(controller, regime, ablated)] = list of per-seed referent_mi dicts

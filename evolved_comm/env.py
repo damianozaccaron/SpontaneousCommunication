@@ -129,6 +129,7 @@ class Rollout:
     signal: np.ndarray = None         # per step: each agent's emitted signal
     dist_food: np.ndarray = None      # per step: each agent's distance to nearest food
     pos: np.ndarray = None            # per step: every agent position
+    intake_step: np.ndarray = None    # per step: did each agent eat an item this step (bool)
 
 
 def simulate(cfg: Config, n_groups: int, policy, rng, log: bool = False) -> Rollout:
@@ -156,8 +157,8 @@ def simulate(cfg: Config, n_groups: int, policy, rng, log: bool = False) -> Roll
     signal_emitted = np.zeros((n_groups, group_size))
 
     if hasattr(policy, 'reset'):
-        policy.reset(n_agents)     # clear recurrent/NEAT memory for the episode
-    recorded = {k: [] for k in ("food_state", "signal", "dist_food", "pos")}
+        policy.reset(n_agents)     # clear recurrent memory for the episode
+    recorded = {k: [] for k in ("food_state", "signal", "dist_food", "pos", "intake_step")}
 
     for step in range(cfg.episode_steps):
         observations, food_state, nearest_food_dist = observe(
@@ -206,10 +207,11 @@ def simulate(cfg: Config, n_groups: int, policy, rng, log: bool = False) -> Roll
             recorded["signal"].append(signal_emitted.copy())
             recorded["dist_food"].append(nearest_food_dist.copy())
             recorded["pos"].append(agent_positions.copy())
+            recorded["intake_step"].append(wins_food.copy())
 
     if log:
         return Rollout(intake, np.array(recorded["food_state"]),
                        np.array(recorded["signal"]), np.array(recorded["dist_food"]),
-                       np.array(recorded["pos"]))
+                       np.array(recorded["pos"]), np.array(recorded["intake_step"]))
     
     return Rollout(intake)
