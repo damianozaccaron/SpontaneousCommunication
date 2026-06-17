@@ -1,17 +1,3 @@
-"""Figures + statistics from a results directory (default: data/).
-
-Adapts to whatever conditions are present.  Produces, when the relevant runs
-exist:
-  learning_<controller>.pdf : group yield vs generation, regimes overlaid,
-                              channel-on solid / ablated dashed.
-  emergence_<controller>.pdf: I(signal;food-state) vs generation + shuffle null.
-  value_bar.pdf             : final yield, channel-on vs ablated, per cond.
-  alpha_sweep.pdf           : hybrid -- MI and channel value vs alpha.
-  signal_map.pdf            : an exemplar champion's signalling behaviour.
-and stats.json with medians, Mann-Whitney tests, and the channel-value table.
-
-Usage: python make_figures.py [results_dir]
-"""
 import os, sys, glob, json
 import numpy as np
 import matplotlib; matplotlib.use("Agg")

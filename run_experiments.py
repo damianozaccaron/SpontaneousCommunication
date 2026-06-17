@@ -1,21 +1,3 @@
-"""Parallel experiment runner.
-
-Builds the full job matrix (controllers x regimes x alphas x channel x seeds),
-runs jobs across CPU cores, writes one compressed .npz per job, logs live
-progress to JSONL, and checkpoints long runs so they survive interruption.
-Re-running skips completed jobs, so it is fully restartable.
-
-Examples
---------
-# the headline sweep on a workstation:
-python run_experiments.py --controllers feedforward,recurrent \
-    --regimes colony,individual,hybrid --alphas 0.5 --ablate \
-    --seeds 15 --gens 800 --pop 300 --workers 12
-
-# a quick test:
-python run_experiments.py --controllers feedforward --regimes colony \
-    --seeds 2 --gens 50 --pop 80 --workers 2
-"""
 from __future__ import annotations
 import os, json, time, argparse
 import numpy as np

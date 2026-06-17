@@ -1,10 +1,3 @@
-"""Environment sanity check: does the world actually reward communication?
-
-Runs a hand-scripted 'oracle' that signals while on food and climbs the signal
-gradient otherwise, against an identical but mute+deaf oracle.  If signalling
-does not raise group yield here, no evolutionary result about communication is
-trustworthy -- so run this whenever you change the environment.
-"""
 import argparse, numpy as np
 from scipy.stats import mannwhitneyu
 from evolved_comm.config import Config
@@ -21,7 +14,7 @@ cfg = Config(episode_steps=args.episode, group_size=args.group)
 rng = np.random.default_rng(1)
 
 # Per-group total yield for the oracle, with signalling either on (mute=False)
-# or fully disabled (mute=True) -- the control that isolates the channel's value.
+# or fully disabled (mute=True) to isolate the channel's value.
 oracle_yield = lambda mute: env.simulate(cfg, args.n, oracle_policy(cfg, mute=mute), rng).intake.sum(1)
 signalling_yield, mute_yield = oracle_yield(False), oracle_yield(True)
 p_value = mannwhitneyu(signalling_yield, mute_yield, alternative="greater").pvalue

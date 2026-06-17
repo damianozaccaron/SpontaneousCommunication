@@ -1,17 +1,3 @@
-"""Fixed-topology controllers behind a common interface.
-
-A *controller* knows the genome layout and how to turn a set of per-agent
-genomes into a *policy* -- a callable ``policy(obs, rng) -> (move, sig)`` that
-also exposes ``reset(n_agents)`` to clear any per-episode memory.  The world
-(`env.simulate`) only ever sees that callable, so adding a new brain type never
-touches the physics, the metric, the oracle, or the ablation.
-
-Two backends here (both batched across all agents with einsum):
-  * FeedforwardController : memoryless 9->H->3 MLP.
-  * RecurrentController   : Elman RNN, h_t = tanh(W_in x + W_rec h_{t-1} + b),
-                            giving the receiver the memory it needs to "keep
-                            heading toward a call I heard a moment ago".
-"""
 from __future__ import annotations
 import numpy as np
 from .config import Config
@@ -22,9 +8,7 @@ def _sigmoid(x):
     return 1.0 / (1.0 + np.exp(-x))
 
 
-# --------------------------------------------------------------------------- #
-#  Feedforward MLP                                                            #
-# --------------------------------------------------------------------------- #
+#  Feedforward MLP                                                            
 class _FFPolicy:
     """Memoryless MLP policy, batched across every agent at once.
 
@@ -78,9 +62,7 @@ class FeedforwardController:
         return _FFPolicy(population[ids_flat], self.cfg)
 
 
-# --------------------------------------------------------------------------- #
-#  Elman recurrent MLP                                                        #
-# --------------------------------------------------------------------------- #
+#  Elman recurrent MLP                                                        
 class _RNNPolicy:
     """Elman recurrent policy: like ``_FFPolicy`` but with a hidden state.
 

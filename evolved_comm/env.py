@@ -1,20 +1,3 @@
-"""Vectorised 2D foraging world with short-range food and long-range signals.
-
-The world is a square torus.  Food is clustered in a small number of *renewable*
-patches: an eaten item respawns at its patch after ``respawn_delay`` steps, so a
-patch is a persistent but hard-to-find resource (a fruiting tree, not a finite
-pile).  Food is only *sensed* within ``r_sense`` and *consumed* within ``r_eat``
-(both short); each agent emits a scalar signal perceived by groupmates out to
-``r_signal`` (long).
-
-Nothing in the reward couples signalling to fitness.  But because a patch is
-hard to find yet rewarding to exploit, an agent that has found one *could* recruit
-groupmates that would otherwise wander -- raising the group's total harvest.  Only
-selection can discover that.  Eating is rate-limited to one item/agent/step.
-
-``simulate`` is controller-agnostic via a ``policy(obs, rng)`` callable.
-Agents are flattened row-major (group, member): agent (b, g) is index b*G + g.
-"""
 from __future__ import annotations
 import numpy as np
 from dataclasses import dataclass

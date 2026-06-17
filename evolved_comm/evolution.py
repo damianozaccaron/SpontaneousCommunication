@@ -1,18 +1,3 @@
-"""Evolution core shared by both controllers.
-
-This module is brain-agnostic: it assembles foraging groups under the chosen
-selection regime, scores genomes, and drives evolution.  The only thing it asks
-of a controller is ``random_population``, ``make_policy(population, ids_flat)``
-and array genomes.
-
-Regimes (the central manipulation):
-  colony     : clonal groups, fitness = group yield               (relatedness 1)
-  individual : mixed groups,  fitness = personal intake
-  hybrid     : mixed groups,  fitness = alpha*personal + (1-alpha)*group_yield
-
-Mixed regimes average fitness over ``eval_repeats`` independent group draws to
-cut the single-draw variance.
-"""
 from __future__ import annotations
 import os, pickle
 import numpy as np
@@ -94,9 +79,7 @@ def probe_mi(controller, genome, cfg: Config, rng, n_groups=32, want_map=False):
     return (mi, null, rollout) if want_map else (mi, null)
 
 
-# --------------------------------------------------------------------------- #
-#  Fixed-topology GA operators                                                #
-# --------------------------------------------------------------------------- #
+#  Fixed-topology GA operators                                                
 def _tournament(fitness, k, rng):
     """Tournament selection: for each slot pick the fittest of ``k`` random genomes."""
     contenders = rng.integers(0, len(fitness), size=(len(fitness), k))
@@ -128,9 +111,7 @@ def _next_generation(pop, fitness, cfg, rng):
     return next_pop
 
 
-# --------------------------------------------------------------------------- #
-#  Checkpointing                                                              #
-# --------------------------------------------------------------------------- #
+#  Checkpointing 
 def _save_ckpt(path, state):
     if path:
         with open(path + ".tmp", "wb") as f:
@@ -145,9 +126,7 @@ def _load_ckpt(path):
     return None
 
 
-# --------------------------------------------------------------------------- #
-#  Main loops                                                                 #
-# --------------------------------------------------------------------------- #
+#  Main loops 
 def evolve(cfg: Config, mi_every=5, probe_groups=32, checkpoint_path=None, log_fn=None):
     """Run the evolution loop. Returns (history dict, final-probe dict)."""
     return _evolve_vector(cfg, mi_every, probe_groups, checkpoint_path, log_fn)

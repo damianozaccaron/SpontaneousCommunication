@@ -1,27 +1,3 @@
-"""Post-hoc analysis: *what is the evolved signal about?*
-
-For every saved champion we re-run one logged clonal episode and measure the
-mutual information between the agent's emitted signal and three candidate
-referents -- the things the signal might be "talking about":
-
-    on_food        : is the emitter currently standing on food?      (binary)
-    neighbors      : how many groupmates are within NEIGHBOR_RADIUS?  (count)
-    recent_intake  : did the emitter eat in the last RECENT_WINDOW steps? (binary)
-
-Three deliberate measurement choices (one line each to justify in the report)
------------------------------------------------------------------------------
-1. Estimator.  The signal is a continuous, near-degenerate sigmoid output.
-   Equal-width binning collapses it into a single occupied bin and reads ~0,
-   so we hand the raw continuous signal (the feature) and the discrete referent
-   (the target) to sklearn's `mutual_info_classif(discrete_features=False)` --
-   the Kraskov/Ross k-nearest-neighbour estimator, which needs no bin edges.
-2. Deaf control.  A high MI can be "free": the signal neuron shares network
-   inputs with the food sensors, so it correlates with food even with nobody
-   listening.  We therefore report channel-ON minus the DEAF (ablated) baseline;
-   only the excess counts as communication that exists *because* of listeners.
-3. Null floor.  k-NN MI is positively biased, so each estimate is paired with a
-   label-shuffle null computed by the same estimator: the bias we must clear.
-"""
 from __future__ import annotations
 import json
 import numpy as np

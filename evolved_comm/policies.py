@@ -1,7 +1,3 @@
-"""Controllers that drive agents in the world: the evolved MLP and a
-hand-scripted *oracle* signaller used to validate that the environment really
-rewards communication.
-"""
 from __future__ import annotations
 import numpy as np
 from .config import Config
