@@ -9,7 +9,7 @@ personal intake), `hybrid` (mixed, `alpha*personal + (1-alpha)*group`).
 
 For more details, check the included paper.
 
-## Run it
+## How to run the code
 ```bash
 pip install -r requirements.txt
 
